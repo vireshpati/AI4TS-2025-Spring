@@ -1,0 +1,80 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\title{Executive summary: Trajectory inference via Mean-field Langevin in path space}
+\author{Viresh Pati}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Paper Details}
+\textbf{Title:} 
+\\
+L\'ena\"ic Chizat, Stephen Zhang, Matthieu Heitz, and Geoffrey Schiebinger.
+\\
+``Trajectory Inference via Mean-field Langevin in Path Space'' 
+\textit{NeurIPS}, 2022.
+\\
+\href{https://arxiv.org/abs/2205.07146}{[arxiv link]}
+
+\section{Repository}
+Code is provided at \url{https://github.com/zsteve/mfl} for reproducing the main experiments 
+and implementing the Mean-Field Langevin (MFL) method on trajectory inference tasks.
+
+\section{High-level Problem}
+We have snapshots of a population evolving over time (for example, cells at different stages of development). We want to reconstruct a continuous trajectory or stochastic process explaining how points (cells) move from earlier snapshots to later snapshots.
+
+\begin{itemize}
+    \item The snapshots come from unknown time marginals of some underlying diffusion, but each individual trajectory is not directly observed.
+    \item The paper adopts a nonparametric framework, treating the \emph{law on paths} as the unknown to be estimated.
+    \item By placing a relative-entropy regularization (with respect to Brownian motion), the method yields an estimator that smoothly interpolates between the observed timepoints.
+\end{itemize}
+
+\section{Intuition behind the Technique}
+\begin{itemize}
+    \item \textbf{Min-Entropy Estimator.} The authors build on earlier work which proposed a ``min-entropy'' criterion: out of all candidate distributions on paths that fit the data, pick the one with minimal Kullback--Leibler divergence from Brownian motion in path space.
+    \item \textbf{Reduction to Schr\"odinger Bridges.} Although the unknown is an entire continuous-time law $P$ over paths, one can reduce the problem to working with discrete marginals $\{\mu_t\}_{t=1}^T$ and entropic optimal transport (a.k.a.\ Schr\"odinger bridges) between consecutive timepoints.
+    \item \textbf{Mean-Field Langevin (MFL).} Instead of discretizing space on a fixed grid, the paper proposes a ``particle'' approach. Multiple point clouds evolve via gradient descent on an entropy-regularized objective, with the gradient involving repeated Schr\"odinger-bridge computations (via Sinkhorn).
+\end{itemize}
+
+\section{Method Outline}
+\begin{enumerate}
+    \item \textbf{Formulate an Objective in Path Space:} 
+    \[
+        \min_{P \in \mathcal{P}(\Omega)} \;\; \sum_{i=1}^T \lambda\, \mathrm{Fit}_\sigma(P_{t_i},\, \hat{\mu}_{t_i}) \;+\; \tau\, \mathrm{KL}\bigl(P \,\|\, W_\tau\bigr),
+    \]
+    where $W_\tau$ is Brownian motion on $[0,1]$ in the domain $X$ (possibly with reflecting boundary), and $\mathrm{Fit}_\sigma$ is a smooth cost enforcing $P_{t_i}$ to match the observed snapshot $\hat{\mu}_{t_i}$.
+    \item \textbf{Reduced Form / Markovian Representation:} Show that the entropy term decomposes through time and can be expressed as \emph{coupled entropic optimal transports} plus a differential entropy over marginals. 
+    \item \textbf{Mean-Field Gradient Flow:} Propose a McKean--Vlasov SDE whose equilibrium is the minimizer of the above objective. Particles at each time index $i$ diffuse with a drift that depends on the gradient of the objective, while the entire set of time-indexed measures is coupled via Schr\"odinger bridges.
+\end{enumerate}
+
+\section{Results and Examples}
+\begin{itemize}
+    \item \textbf{Synthetic Bifurcation in 10D:} The authors simulate a stochastic process with branching potential in a 10-dimensional space. They show that the MFL approach recovers smooth trajectories from limited snapshots, outperforming a static grid-based method called gWOT, especially with very few samples at intermediate times.
+    \item \textbf{Single-Cell Reprogramming:} On a real dataset of reprogramming cells, MFL demonstrates improved reconstruction of intermediate cell states relative to naive interpolation of snapshots. They measure performance via an Energy Distance to a large ``ground-truth'' pool of cells.
+    \item \textbf{Branching Extension:} The method can incorporate a prior growth rate $g(t,x)$ in unbalanced Schr\"odinger bridges so that the mass of the population can increase or decrease over time. This is beneficial for branching processes in biology.
+\end{itemize}
+
+\section{Some Additional Background}
+\subsection{Mean-Field Langevin (MFL)}
+The classical \emph{Langevin dynamics} is a gradient descent in distribution space. The authors show how to adapt it to a non-linear PDE system that couples multiple time-slices. Convergence guarantees to the global minimizer follow from recent theoretical work on entropic gradient flows.
+
+\subsection{Complexity and Implementation}
+\begin{itemize}
+    \item \textbf{Iteration:} Each MFL iteration updates particle locations using noisy gradient descent. 
+    \item \textbf{Inner Sinkhorn Solve:} The gradient wrt.\ the entropic OT terms requires computing Schr\"odinger bridges. Each step thus calls Sinkhorn repeatedly (one for each pair of consecutive times).
+    \item \textbf{Convergence Guarantees:} Under compactness assumptions and mild technical conditions, MFL converges at a rate exponential in iteration if an additional small entropy $\varepsilon$ is added (simulated annealing can remove that $\varepsilon$).
+\end{itemize}
+
+\section{Application Outlook}
+\begin{itemize}
+    \item \textbf{Cell Trajectory Inference:} Potentially quite powerful for single-cell data, especially in cases where snapshot coverage at intermediate times is sparse.
+    \item \textbf{General Diffusion Models:} The approach is relevant to any scenario of partial dynamic data, bridging multiple timepoints or states, with a preference for smoothly entropic couplings.
+\end{itemize}
+
+\end{document}
